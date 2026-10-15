@@ -15,7 +15,12 @@ const state = {
   authMode: 'login',
   adminTab: 'orders',
   viewMode: 'storefront',
-  orderFilter: 'Semua'
+  orderFilter: 'Semua',
+  tableNumber: '',
+  soundEnabled: localStorage.getItem('blk_sound_enabled') !== '0',
+  previousPendingCount: null,
+  adminOrders: [],
+  tablePresets: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', 'Bar 01', 'Bar 02']
 };
 
 const imageMap = {
@@ -62,8 +67,11 @@ function setViewMode(mode) {
     if (adminPanel) adminPanel.classList.remove('hidden');
     if (adminBanner) adminBanner.classList.add('hidden');
     closePanels();
+    updateSoundButton();
     renderAdmin();
+    startAdminPolling();
   } else {
+    stopAdminPolling();
     if (storefront) storefront.classList.remove('hidden');
     if (adminPanel) adminPanel.classList.add('hidden');
     if (isStaff && mode === 'storefront') {
@@ -118,9 +126,20 @@ function fmtShort(n) {
   return money(n).replace(',00', '');
 }
 
+function getBadgeClass(badge = '') {
+  const b = String(badge).toLowerCase();
+  if (b.includes('pedas') || b.includes('spicy') || b.includes('🌶')) return 'badge-pedas';
+  if (b.includes('best') || b.includes('favorit') || b.includes('rekomendasi') || b.includes('⭐') || b.includes('🔥')) return 'badge-bestseller';
+  if (b.includes('dingin') || b.includes('ice') || b.includes('cold') || b.includes('🧊')) return 'badge-dingin';
+  if (b.includes('kopi') || b.includes('coffee') || b.includes('espresso') || b.includes('☕')) return 'badge-kopi';
+  if (b.includes('veggie') || b.includes('fresh') || b.includes('salad') || b.includes('🌱')) return 'badge-veggie';
+  return '';
+}
+
 function foodImage(item, index) {
   const url = item.image || imageMap[item.name];
-  return `<div class="food-image">${item.badge ? `<span class="menu-badge">${escapeHtml(item.badge)}</span>` : ''}${url ? `<img loading="lazy" src="${escapeAttr(url)}" alt="${escapeAttr(item.name)}" onerror="this.remove();this.parentElement.insertAdjacentHTML('beforeend','<div class=\\'food-placeholder\\'><span>${escapeHtml(item.name.split(' ').map(w=>w[0]).join('').slice(0,3))}</span></div>')">` : `<div class="food-placeholder"><span>${escapeHtml(item.name.split(' ').map(w=>w[0]).join('').slice(0,3))}</span></div>`}</div>`;
+  const badgeClass = item.badge ? getBadgeClass(item.badge) : '';
+  return `<div class="food-image">${item.badge ? `<span class="menu-badge ${badgeClass}">${escapeHtml(item.badge)}</span>` : ''}${url ? `<img loading="lazy" src="${escapeAttr(url)}" alt="${escapeAttr(item.name)}" onerror="this.remove();this.parentElement.insertAdjacentHTML('beforeend','<div class=\\'food-placeholder\\'><span>${escapeHtml(item.name.split(' ').map(w=>w[0]).join('').slice(0,3))}</span></div>')">` : `<div class="food-placeholder"><span>${escapeHtml(item.name.split(' ').map(w=>w[0]).join('').slice(0,3))}</span></div>`}</div>`;
 }
 
 function escapeHtml(str='') {
@@ -129,6 +148,416 @@ function escapeHtml(str='') {
 
 function escapeAttr(str='') {
   return escapeHtml(str).replace(/`/g, '&#96;');
+}
+
+function extractTable(notes = '') {
+  const match = String(notes).match(/\[MEJA\s+([^\]]+)\]/i);
+  return match ? match[1].trim() : '-';
+}
+
+function renderTableBanner() {
+  const el = $('#tableNotice');
+  if (!el) return;
+  if (!state.tableNumber) {
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  el.classList.remove('hidden');
+  el.innerHTML = `
+    <div class="table-notice-inner">
+      <div class="table-notice-left">
+        <span class="table-badge-tag">📍 MEJA AKTIF</span>
+        <span>Pesanan makan di tempat otomatis untuk: <b class="table-num-highlight">Meja ${escapeHtml(state.tableNumber)}</b></span>
+      </div>
+      <div class="table-notice-actions">
+        <button class="btn-xs-clean" id="changeTableBtn">Ganti Meja</button>
+        <button class="btn-xs-close" id="dismissTableBtn" title="Tutup pemberitahuan">✕</button>
+      </div>
+    </div>
+  `;
+}
+
+let audioCtx = null;
+function playOrderBell() {
+  if (!state.soundEnabled) return;
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!audioCtx) audioCtx = new AudioContextClass();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    const now = audioCtx.currentTime;
+
+    // First Tone: E5 (659.25 Hz) - warm bell strike
+    const osc1 = audioCtx.createOscillator();
+    const gain1 = audioCtx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(659.25, now);
+    gain1.gain.setValueAtTime(0.35, now);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+    osc1.connect(gain1);
+    gain1.connect(audioCtx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.7);
+
+    // Second Tone: A5 (880 Hz) - crystalline harmonic resonance
+    const osc2 = audioCtx.createOscillator();
+    const gain2 = audioCtx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(880, now + 0.14);
+    gain2.gain.setValueAtTime(0.38, now + 0.14);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+    osc2.connect(gain2);
+    gain2.connect(audioCtx.destination);
+    osc2.start(now + 0.14);
+    osc2.stop(now + 1.2);
+  } catch (err) {
+    console.warn('Audio alert error:', err);
+  }
+}
+
+function updateSoundButton() {
+  const btn = $('#soundToggleBtn');
+  const label = $('#soundToggleLabel');
+  if (!btn || !label) return;
+  if (state.soundEnabled) {
+    btn.classList.remove('muted');
+    btn.title = 'Bel suara pesanan aktif (Klik untuk membisukan)';
+    label.textContent = 'BEL: ON';
+  } else {
+    btn.classList.add('muted');
+    btn.title = 'Bel suara pesanan bisu (Klik untuk mengaktifkan)';
+    label.textContent = 'BEL: OFF';
+  }
+}
+
+let adminPollTimer = null;
+function startAdminPolling() {
+  stopAdminPolling();
+  adminPollTimer = setInterval(async () => {
+    if (state.viewMode !== 'admin' || !state.user || state.user.role !== 'admin') {
+      stopAdminPolling();
+      return;
+    }
+    try {
+      const summary = await api('/api/admin/summary');
+      if (typeof state.previousPendingCount === 'number' && summary.pending > state.previousPendingCount) {
+        playOrderBell();
+        toast(`🔔 PESANAN BARU MASUK! Total ${summary.pending} pesanan menunggu.`);
+        if (state.adminTab === 'orders') {
+          renderAdmin();
+        }
+      }
+      state.previousPendingCount = summary.pending;
+    } catch {}
+  }, 12000);
+}
+
+function stopAdminPolling() {
+  if (adminPollTimer) {
+    clearInterval(adminPollTimer);
+    adminPollTimer = null;
+  }
+}
+
+function printReceipt(orderId) {
+  const order = (state.adminOrders || []).find(o => o.id === Number(orderId));
+  if (!order) {
+    toast('Data pesanan tidak ditemukan.');
+    return;
+  }
+  const tableNo = extractTable(order.notes);
+  const dateStr = new Date(order.created_at).toLocaleString('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+  const cashierName = (state.user && state.user.name) || 'Kasir BLK';
+  const cleanNotes = (order.notes || '').replace(/\[MEJA\s+[^\]]+\]/i, '').trim();
+
+  const itemsHtml = (order.items || []).map(item => `
+    <tr>
+      <td style="text-align:left;padding:3px 0;vertical-align:top">
+        <b>${escapeHtml(item.item_name)}</b>${item.options ? `<br><small style="font-size:10px;color:#555">(${escapeHtml(item.options)})</small>` : ''}
+      </td>
+      <td style="text-align:center;padding:3px 4px;vertical-align:top">${item.quantity}</td>
+      <td style="text-align:right;padding:3px 0;vertical-align:top">${fmtShort(item.unit_price * item.quantity)}</td>
+    </tr>
+  `).join('');
+
+  const receiptHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Struk Order - ${escapeHtml(order.code)}</title>
+      <style>
+        @page { margin: 0; size: 80mm auto; }
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          padding: 14px 12px;
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 12px;
+          line-height: 1.35;
+          color: #000;
+          background: #fff;
+          max-width: 300px;
+          margin-inline: auto;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .brand-title { font-size: 22px; font-weight: 900; letter-spacing: 1px; }
+        .brand-sub { font-size: 10px; margin-top: 2px; }
+        .divider-double { border-top: 2px dashed #000; margin: 8px 0; }
+        .divider-single { border-top: 1px dashed #000; margin: 6px 0; }
+        .info-row { display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { border-bottom: 1px dashed #000; padding: 4px 0; font-size: 11px; }
+        .total-row { font-size: 14px; font-weight: 900; margin-top: 4px; display: flex; justify-content: space-between; }
+        .footer { text-align: center; font-size: 10.5px; margin-top: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="text-center">
+        <div class="brand-title">BLK CAFE</div>
+        <div class="brand-sub">GOOD FOOD. NO SMALL TALK.</div>
+        <div class="brand-sub">Jl. Kopi No. 08, Kota Kamu · WA: 0812-3456-7890</div>
+      </div>
+      <div class="divider-double"></div>
+      <div class="info-row"><span>NO ORDER</span><b>${escapeHtml(order.code)}</b></div>
+      <div class="info-row"><span>TANGGAL</span><span>${escapeHtml(dateStr)}</span></div>
+      <div class="info-row"><span>MEJA</span><b>MEJA ${escapeHtml(tableNo)}</b></div>
+      <div class="info-row"><span>PELANGGAN</span><span>${escapeHtml(order.customer_name)}</span></div>
+      ${order.phone ? `<div class="info-row"><span>TELP</span><span>${escapeHtml(order.phone)}</span></div>` : ''}
+      <div class="info-row"><span>KASIR</span><span>${escapeHtml(cashierName)}</span></div>
+      <div class="info-row"><span>LAYANAN</span><b>DINE-IN (BAYAR KASIR)</b></div>
+      <div class="divider-single"></div>
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left">ITEM</th>
+            <th style="text-align:center;width:30px">QTY</th>
+            <th style="text-align:right;width:75px">TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsHtml}
+        </tbody>
+      </table>
+      <div class="divider-single"></div>
+      <div class="info-row"><span>SUBTOTAL</span><span>${fmtShort(order.subtotal)}</span></div>
+      ${order.discount > 0 ? `<div class="info-row"><span>DISKON (${escapeHtml(order.voucher_code || 'VOUCHER')})</span><span>−${fmtShort(order.discount)}</span></div>` : ''}
+      <div class="divider-double"></div>
+      <div class="total-row"><span>TOTAL AKHIR</span><span>${fmtShort(order.total)}</span></div>
+      <div class="divider-double"></div>
+      <div class="info-row"><span>STATUS</span><b>${escapeHtml(order.status.toUpperCase())}</b></div>
+      ${cleanNotes ? `<div style="font-size:10px;margin-top:4px"><b>Catatan:</b> ${escapeHtml(cleanNotes)}</div>` : ''}
+      <div class="footer">
+        <p style="margin:4px 0">=== TERIMA KASIH ===<br>Selamat Menikmati Hidangan Kami!</p>
+        <p style="margin:4px 0;font-size:9.5px;color:#333">Wifi: BLK-CAFE / Sandi: goodfood123</p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+  iframe.contentDocument.write(receiptHtml);
+  iframe.contentDocument.close();
+  iframe.contentWindow.focus();
+  setTimeout(() => {
+    iframe.contentWindow.print();
+    setTimeout(() => iframe.remove(), 2500);
+  }, 250);
+}
+
+function printTableTentCard(tableNo) {
+  const url = `${window.location.origin}/?table=${encodeURIComponent(tableNo)}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(url)}`;
+  const tentHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>QR Stand Meja ${escapeHtml(tableNo)} - BLK CAFE</title>
+      <style>
+        @page { size: auto; margin: 15mm; }
+        body {
+          font-family: 'DM Sans', sans-serif;
+          text-align: center;
+          margin: 0;
+          padding: 20px;
+          background: #fff;
+          color: #151515;
+        }
+        .tent-card {
+          width: 320px;
+          border: 4px solid #151515;
+          margin: 20px auto;
+          padding: 28px 24px;
+          box-shadow: 8px 8px 0 #151515;
+          background: #fffefa;
+        }
+        .brand-title {
+          font-size: 34px;
+          font-weight: 900;
+          letter-spacing: 1px;
+          font-family: 'Barlow Condensed', sans-serif;
+          margin: 0;
+        }
+        .brand-sub {
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 1px;
+          margin-top: 4px;
+          color: #555;
+        }
+        .table-box {
+          background: #ffd52a;
+          border: 3px solid #151515;
+          padding: 8px 16px;
+          margin: 18px 0;
+          font-family: 'Barlow Condensed', sans-serif;
+          font-size: 42px;
+          font-weight: 900;
+          letter-spacing: 1px;
+        }
+        .qr-img {
+          width: 200px;
+          height: 200px;
+          border: 3px solid #151515;
+          padding: 8px;
+          background: white;
+          display: block;
+          margin: 0 auto;
+        }
+        .scan-instruct {
+          font-size: 13px;
+          font-weight: 900;
+          letter-spacing: 0.5px;
+          margin-top: 14px;
+        }
+        .step-list {
+          font-size: 10px;
+          color: #444;
+          margin: 10px 0 0;
+          line-height: 1.6;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="tent-card">
+        <div class="brand-title">BLK CAFE</div>
+        <div class="brand-sub">GOOD FOOD. NO SMALL TALK.</div>
+        <div class="table-box">MEJA ${escapeHtml(tableNo)}</div>
+        <img class="qr-img" src="${qrUrl}" alt="QR Meja ${escapeHtml(tableNo)}">
+        <div class="scan-instruct">SCAN UNTUK PESAN LANGSUNG ↗</div>
+        <div class="step-list">
+          1. Arahkan kamera HP ke QR Code<br>
+          2. Pilih menu favoritmu di web<br>
+          3. Bayar di kasir, hidangan diantar ke meja
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+  iframe.contentDocument.write(tentHtml);
+  iframe.contentDocument.close();
+  iframe.contentWindow.focus();
+  setTimeout(() => {
+    iframe.contentWindow.print();
+    setTimeout(() => iframe.remove(), 2500);
+  }, 300);
+}
+
+function printAllTableStickers() {
+  const tables = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
+  const cardsHtml = tables.map(t => {
+    const url = `${window.location.origin}/?table=${encodeURIComponent(t)}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}`;
+    return `
+      <div class="sticker-card">
+        <div class="sticker-brand">BLK CAFE</div>
+        <div class="sticker-table">MEJA ${t}</div>
+        <img class="sticker-qr" src="${qrUrl}" alt="QR Meja ${t}">
+        <div class="sticker-foot">SCAN & PESAN ↗</div>
+      </div>
+    `;
+  }).join('');
+
+  const sheetHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Stiker QR Meja 01-10 - BLK CAFE</title>
+      <style>
+        @page { size: A4 portrait; margin: 10mm; }
+        * { box-sizing: border-box; }
+        body { font-family: 'DM Sans', sans-serif; margin: 0; padding: 10px; }
+        .sheet-title { text-align: center; font-size: 16px; font-weight: 900; margin-bottom: 12px; }
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+        }
+        .sticker-card {
+          border: 2.5px solid #151515;
+          padding: 12px;
+          text-align: center;
+          background: #fffefa;
+        }
+        .sticker-brand { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 900; }
+        .sticker-table {
+          background: #ffd52a;
+          border: 1.5px solid #151515;
+          font-family: 'Barlow Condensed', sans-serif;
+          font-size: 26px;
+          font-weight: 900;
+          margin: 6px auto;
+          padding: 3px 10px;
+          width: max-content;
+        }
+        .sticker-qr { width: 110px; height: 110px; border: 1.5px solid #151515; padding: 4px; display: block; margin: 0 auto; }
+        .sticker-foot { font-size: 9px; font-weight: 900; margin-top: 6px; }
+      </style>
+    </head>
+    <body>
+      <div class="sheet-title">BLK CAFE — LEMBAR STIKER QR MEJA (01 S/D 10)</div>
+      <div class="grid">
+        ${cardsHtml}
+      </div>
+    </body>
+    </html>
+  `;
+
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+  iframe.contentDocument.write(sheetHtml);
+  iframe.contentDocument.close();
+  iframe.contentWindow.focus();
+  setTimeout(() => {
+    iframe.contentWindow.print();
+    setTimeout(() => iframe.remove(), 2500);
+  }, 300);
 }
 
 async function loadMenu() {
@@ -144,7 +573,7 @@ async function loadMenu() {
 function renderMenu() {
   const grid = $('#menu-grid');
   if (!grid) return;
-  const filtered = state.menu.filter(m => (state.category === 'Semua' || m.category === state.category) && (!state.query || `${m.name} ${m.description}`.toLowerCase().includes(state.query.toLowerCase())));
+  const filtered = state.menu.filter(m => (state.category === 'Semua' || m.category === state.category) && (!state.query || `${m.name} ${m.description} ${m.badge || ''}`.toLowerCase().includes(state.query.toLowerCase())));
   grid.innerHTML = filtered.length ? filtered.map((m, i) => `
     <article class="menu-card">
       ${foodImage(m, i)}
@@ -334,10 +763,17 @@ function openCheckout() {
     toast('Login dulu sebelum checkout.');
     return;
   }
-  $('#checkoutSummary').innerHTML = checkoutSummary();
   $('#checkoutError').textContent = '';
   $('#checkoutForm').reset();
   $('#checkoutSummary').innerHTML = checkoutSummary();
+  const tableIn = $('#checkoutTableInput');
+  const tableHint = $('#tableScanHint');
+  if (state.tableNumber && tableIn) {
+    tableIn.value = state.tableNumber;
+    if (tableHint) tableHint.classList.remove('hidden');
+  } else if (tableHint) {
+    tableHint.classList.add('hidden');
+  }
   closePanels();
   showModal('checkoutModal');
 }
@@ -369,6 +805,9 @@ $('#checkoutForm')?.addEventListener('submit', async e => {
       body: JSON.stringify(payload)
     });
     state.lastOrder = result.order;
+    state.tableNumber = tableNumber;
+    try { sessionStorage.setItem('blk_table', tableNumber); } catch {}
+    renderTableBanner();
     state.cart = [];
     state.voucherCode = '';
     state.discount = 0;
@@ -462,6 +901,8 @@ async function renderAdmin() {
   try {
     if (state.adminTab === 'orders') {
       const [stats, orders] = await Promise.all([api('/api/admin/summary'), api('/api/admin/orders')]);
+      state.adminOrders = orders;
+      state.previousPendingCount = stats.pending;
       const filteredOrders = state.orderFilter === 'Semua' ? orders : orders.filter(o => o.status === state.orderFilter);
 
       host.innerHTML = `
@@ -502,7 +943,7 @@ async function renderAdmin() {
                 <th>RINCIAN ITEM</th>
                 <th style="width:120px">TOTAL</th>
                 <th style="width:170px">STATUS ORDER</th>
-                <th style="width:85px">AKSI</th>
+                <th style="width:95px">AKSI</th>
               </tr>
             </thead>
             <tbody>
@@ -536,6 +977,7 @@ async function renderAdmin() {
                   </td>
                   <td>
                     <button class="admin-action btn-save-menu" data-save-order="${o.id}">SIMPAN</button>
+                    <button class="admin-action btn-print-receipt" data-print-order="${o.id}" title="Cetak struk kasir">🖨️ STRUK</button>
                   </td>
                 </tr>
               `).join('') : `<tr><td colspan="6" style="text-align:center;padding:30px;color:#777">TIDAK ADA PESANAN DENGAN FILTER INI.</td></tr>`}
@@ -569,7 +1011,17 @@ async function renderAdmin() {
                 <option>Dessert</option>
               </select>
             </label>
-            <label class="form-field">BADGE PROMO (OPSIONAL)<input name="badge" placeholder="Contoh: BEST SELLER / NEW"></label>
+            <label class="form-field">BADGE PROMO / RASA (OPSIONAL)
+              <input name="badge" id="newMenuBadgeInput" placeholder="Contoh: 🌶️ Pedas / ⭐ Best Seller">
+              <div class="quick-badge-list">
+                <span class="quick-badge-chip" data-badge-preset="🌶️ Pedas">🌶️ Pedas</span>
+                <span class="quick-badge-chip" data-badge-preset="☕ Kopi">☕ Kopi</span>
+                <span class="quick-badge-chip" data-badge-preset="🧊 Dingin">🧊 Dingin</span>
+                <span class="quick-badge-chip" data-badge-preset="⭐ Best Seller">⭐ Best Seller</span>
+                <span class="quick-badge-chip" data-badge-preset="🔥 Rekomendasi">🔥 Rekomendasi</span>
+                <span class="quick-badge-chip" data-badge-preset="🌱 Veggie">🌱 Veggie</span>
+              </div>
+            </label>
             
             <div class="form-field" style="grid-column: 1 / -1">
               <span class="field-label">FOTO PRODUK (UPLOAD FILE / DRAG & DROP / LINK URL)</span>
@@ -605,7 +1057,7 @@ async function renderAdmin() {
                 <th style="width:190px">NAMA & DESKRIPSI</th>
                 <th style="width:115px">KATEGORI</th>
                 <th style="width:105px">HARGA (RP)</th>
-                <th style="width:105px">BADGE</th>
+                <th style="width:125px">BADGE / RASA</th>
                 <th>LINK FOTO / UPLOAD</th>
                 <th style="width:85px">STATUS</th>
                 <th style="width:85px">AKSI</th>
@@ -639,7 +1091,15 @@ async function renderAdmin() {
                       <input type="number" data-price="${m.id}" value="${m.price}" style="width:100%">
                     </td>
                     <td>
-                      <input data-badge="${m.id}" value="${escapeAttr(m.badge||'')}" placeholder="BEST SELLER" style="width:100%">
+                      <input data-badge="${m.id}" id="badge-input-${m.id}" value="${escapeAttr(m.badge||'')}" placeholder="Pilih/ketik..." style="width:100%">
+                      <div class="quick-badge-list" style="margin-top:4px">
+                        <span class="quick-badge-chip" data-badge-target="${m.id}" data-badge-val="🌶️ Pedas">🌶️</span>
+                        <span class="quick-badge-chip" data-badge-target="${m.id}" data-badge-val="☕ Kopi">☕</span>
+                        <span class="quick-badge-chip" data-badge-target="${m.id}" data-badge-val="🧊 Dingin">🧊</span>
+                        <span class="quick-badge-chip" data-badge-target="${m.id}" data-badge-val="⭐ Best Seller">⭐</span>
+                        <span class="quick-badge-chip" data-badge-target="${m.id}" data-badge-val="🔥 Favorit">🔥</span>
+                        <span class="quick-badge-chip" data-badge-target="${m.id}" data-badge-val="🌱 Veggie">🌱</span>
+                      </div>
                     </td>
                     <td>
                       <div class="admin-img-cell">
@@ -712,7 +1172,7 @@ async function renderAdmin() {
           imgPreview.src = imgInput.value.trim() || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=120&q=80';
         });
       }
-    } else {
+    } else if (state.adminTab === 'vouchers') {
       const vouchers = await api('/api/admin/vouchers');
       host.innerHTML = `
         <div class="admin-toolbar-row">
@@ -782,6 +1242,42 @@ async function renderAdmin() {
               `).join('')}
             </tbody>
           </table>
+        </div>
+      `;
+    } else if (state.adminTab === 'tables') {
+      const presets = state.tablePresets;
+      host.innerHTML = `
+        <div class="admin-toolbar-row">
+          <div>
+            <h3 style="font:900 28px 'Barlow Condensed',sans-serif;margin:0">KELOLA & CETAK QR CODE MEJA (DINE-IN)</h3>
+            <span style="font-size:9px;color:#666">Cetak kartu meja ber-QR Code untuk ditaruh di masing-masing meja cafe. Pelanggan scan untuk pesan otomatis ke meja tersebut.</span>
+          </div>
+          <button class="admin-action btn-save-menu" id="printAllTablesBtn" style="font-size:10px">🖨️ CETAK SEMUA STIKER (MEJA 01 - 10)</button>
+        </div>
+
+        <div style="background:#fffefa;border:2px solid var(--ink);padding:14px;margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="font-size:10px;font-weight:900">GENERATE LINK / QR CUSTOM MEJA:</span>
+          <input id="customTableInput" placeholder="Contoh: VIP-01 atau Meja Rooftop" style="border:1.5px solid var(--ink);padding:7px 10px;font-size:10px;min-width:200px">
+          <button class="admin-action" id="generateCustomTableBtn">BUAT & CETAK QR</button>
+        </div>
+
+        <div class="table-qr-grid">
+          ${presets.map(t => {
+            const url = `${window.location.origin}/?table=${encodeURIComponent(t)}`;
+            const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+            return `
+              <div class="table-qr-card">
+                <span class="table-badge-tag">DINE-IN QR</span>
+                <div class="table-num-large">MEJA ${escapeHtml(t)}</div>
+                <img class="table-qr-img" src="${qrImg}" alt="QR Meja ${escapeHtml(t)}">
+                <div style="font-size:9px;color:#666;word-break:break-all;margin-bottom:8px">?table=${escapeHtml(t)}</div>
+                <div class="table-qr-actions">
+                  <button class="admin-action" data-copy-table-link="${escapeAttr(t)}">📋 SALIN LINK</button>
+                  <button class="admin-action" data-print-table-card="${escapeAttr(t)}">🖨️ CETAK STAND</button>
+                </div>
+              </div>
+            `;
+          }).join('')}
         </div>
       `;
     }
@@ -915,6 +1411,93 @@ document.addEventListener('click', async e => {
     }
     return;
   }
+  const printOrder = e.target.closest('[data-print-order]');
+  if (printOrder) {
+    printReceipt(printOrder.dataset.printOrder);
+    return;
+  }
+  const badgePreset = e.target.closest('[data-badge-preset]');
+  if (badgePreset) {
+    const input = $('#newMenuBadgeInput');
+    if (input) {
+      input.value = badgePreset.dataset.badgePreset;
+      toast(`Badge dipilih: ${badgePreset.dataset.badgePreset}`);
+    }
+    return;
+  }
+  const badgeTarget = e.target.closest('[data-badge-target]');
+  if (badgeTarget) {
+    const id = badgeTarget.dataset.badgeTarget;
+    const val = badgeTarget.dataset.badgeVal;
+    const input = $(`#badge-input-${id}`);
+    if (input) {
+      input.value = val;
+      toast(`Badge diset ke: ${val}`);
+    }
+    return;
+  }
+  const copyTable = e.target.closest('[data-copy-table-link]');
+  if (copyTable) {
+    const t = copyTable.dataset.copyTableLink;
+    const url = `${window.location.origin}/?table=${encodeURIComponent(t)}`;
+    navigator.clipboard.writeText(url)
+      .then(() => toast(`Link Meja ${t} disalin ke clipboard!`))
+      .catch(() => prompt('Salin link meja ini:', url));
+    return;
+  }
+  const printTable = e.target.closest('[data-print-table-card]');
+  if (printTable) {
+    printTableTentCard(printTable.dataset.printTableCard);
+    return;
+  }
+  if (e.target.id === 'printAllTablesBtn') {
+    printAllTableStickers();
+    return;
+  }
+  if (e.target.id === 'generateCustomTableBtn') {
+    const input = $('#customTableInput');
+    const val = input ? input.value.trim() : '';
+    if (!val) {
+      toast('Ketik nomor/nama meja terlebih dahulu.');
+      return;
+    }
+    printTableTentCard(val);
+    return;
+  }
+  if (e.target.id === 'changeTableBtn') {
+    const current = state.tableNumber || '';
+    const newT = prompt('Masukkan nomor meja Anda:', current);
+    if (newT !== null) {
+      state.tableNumber = newT.trim();
+      try { sessionStorage.setItem('blk_table', state.tableNumber); } catch {}
+      renderTableBanner();
+      toast(state.tableNumber ? `Nomor meja diatur ke: Meja ${state.tableNumber}` : 'Nomor meja dibersihkan.');
+    }
+    return;
+  }
+  if (e.target.id === 'dismissTableBtn') {
+    $('#tableNotice')?.classList.add('hidden');
+    return;
+  }
+  if (e.target.id === 'soundToggleBtn' || e.target.closest('#soundToggleBtn')) {
+    state.soundEnabled = !state.soundEnabled;
+    try { localStorage.setItem('blk_sound_enabled', state.soundEnabled ? '1' : '0'); } catch {}
+    updateSoundButton();
+    if (state.soundEnabled) {
+      playOrderBell();
+      toast('🔔 Bel pesanan baru DIAKTIFKAN.');
+    } else {
+      toast('🔕 Bel pesanan baru DIBISUKAN.');
+    }
+    return;
+  }
+  if (e.target.id === 'testSoundBtn' || e.target.closest('#testSoundBtn')) {
+    state.soundEnabled = true;
+    updateSoundButton();
+    playOrderBell();
+    toast('🎵 Memutar nada bel pesanan...');
+    return;
+  }
 });
 
 document.addEventListener('submit', async e => {
@@ -1015,10 +1598,40 @@ $$('[data-category]').forEach(b => b.addEventListener('click', () => {
   $$('[data-category]').forEach(x => x.classList.toggle('active', x === b));
   renderMenu();
 }));
-$('#menuToggle')?.addEventListener('click', () => $('.main-nav')?.classList.toggle('open'));
-$$('.main-nav a').forEach(a => a.addEventListener('click', () => $('.main-nav')?.classList.remove('open')));
+
+// Mobile Hamburger Navigation Fix: Clean Toggle & Click Outside Handler
+$('#menuToggle')?.addEventListener('click', e => {
+  e.stopPropagation();
+  const nav = $('.main-nav');
+  const btn = $('#menuToggle');
+  if (nav) nav.classList.toggle('open');
+  if (btn) btn.classList.toggle('active');
+});
+
+$$('.main-nav a').forEach(a => a.addEventListener('click', () => {
+  $('.main-nav')?.classList.remove('open');
+  $('#menuToggle')?.classList.remove('active');
+}));
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.main-nav') && !e.target.closest('#menuToggle')) {
+    $('.main-nav')?.classList.remove('open');
+    $('#menuToggle')?.classList.remove('active');
+  }
+});
 
 async function init() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const tableParam = urlParams.get('table') || urlParams.get('meja');
+  if (tableParam) {
+    state.tableNumber = tableParam.trim();
+    try { sessionStorage.setItem('blk_table', state.tableNumber); } catch {}
+  } else {
+    try { state.tableNumber = sessionStorage.getItem('blk_table') || ''; } catch {}
+  }
+  renderTableBanner();
+  updateSoundButton();
+
   try {
     const cfg = await api('/api/config');
     setUser(cfg.user);

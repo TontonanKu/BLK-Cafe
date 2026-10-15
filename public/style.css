@@ -336,10 +336,12 @@
 }
 
 /* Modern Header & Navbar Overhaul */
-.main-nav {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+@media (min-width: 651px) {
+  .main-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
 }
 .nav-item {
   display: inline-flex;
@@ -485,3 +487,339 @@
 .table-img-upload-btn:hover {
   background: var(--yellow);
 }
+
+/* ============================================================
+   TABLE QR BANNER & NOTIFICATION
+   ============================================================ */
+.table-notice-bar {
+  background: var(--yellow);
+  border-bottom: 2px solid var(--ink);
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.08);
+  position: relative;
+  z-index: 25;
+}
+.table-notice-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+.table-notice-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.table-badge-tag {
+  background: var(--ink);
+  color: white;
+  padding: 3px 8px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+.table-num-highlight {
+  background: white;
+  border: 1.5px solid var(--ink);
+  padding: 2px 8px;
+  font-weight: 900;
+  box-shadow: 2px 2px 0 var(--ink);
+  margin-left: 3px;
+}
+.table-notice-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-xs-clean {
+  border: 1.5px solid var(--ink);
+  background: white;
+  padding: 4px 10px;
+  font-size: 9px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.1s;
+}
+.btn-xs-clean:hover {
+  background: var(--ink);
+  color: white;
+}
+.btn-xs-close {
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-content: center;
+  font-weight: 900;
+  font-size: 11px;
+  cursor: pointer;
+}
+.btn-xs-close:hover {
+  background: #ff5a1f;
+  color: white;
+}
+
+/* ============================================================
+   MENU DIETARY / FLAVOR BADGES
+   ============================================================ */
+.menu-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 8px;
+  font-size: 8.5px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  z-index: 2;
+  border: 1.5px solid var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--orange);
+  color: white;
+}
+.menu-badge.badge-pedas {
+  background: #dc2626 !important;
+  color: white !important;
+}
+.menu-badge.badge-bestseller, .menu-badge.badge-favorit, .menu-badge.badge-rekomendasi {
+  background: var(--yellow) !important;
+  color: var(--ink) !important;
+}
+.menu-badge.badge-dingin, .menu-badge.badge-ice {
+  background: #38bdf8 !important;
+  color: #032b43 !important;
+}
+.menu-badge.badge-kopi, .menu-badge.badge-coffee {
+  background: #422006 !important;
+  color: #fef08a !important;
+}
+.menu-badge.badge-veggie, .menu-badge.badge-fresh {
+  background: var(--green) !important;
+  color: #08190e !important;
+}
+
+/* Quick Badge Chips for Admin Menu Form */
+.quick-badge-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+.quick-badge-chip {
+  border: 1.5px solid var(--ink);
+  background: white;
+  padding: 3px 8px;
+  font-size: 8.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+.quick-badge-chip:hover {
+  background: var(--yellow);
+  transform: translate(-1px, -1px);
+  box-shadow: 1.5px 1.5px 0 var(--ink);
+}
+.quick-badge-chip.active {
+  background: var(--ink);
+  color: white;
+}
+
+/* ============================================================
+   ADMIN QR MEJA & TABLE GENERATOR
+   ============================================================ */
+.table-qr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+.table-qr-card {
+  border: 2px solid var(--ink);
+  background: #fffefa;
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+}
+.table-qr-card .table-num-large {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
+  margin: 6px 0;
+  letter-spacing: 0.5px;
+}
+.table-qr-img {
+  width: 145px;
+  height: 145px;
+  border: 2px solid var(--ink);
+  background: white;
+  padding: 6px;
+  margin: 10px 0;
+  display: block;
+}
+.table-qr-actions {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  margin-top: 10px;
+}
+.table-qr-actions button {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: 8px;
+}
+
+/* ============================================================
+   RECEIPT & THERMAL PRINTING
+   ============================================================ */
+.btn-print-receipt {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+  border-color: #0284c7 !important;
+  margin-top: 4px;
+}
+.btn-print-receipt:hover {
+  background: #bae6fd !important;
+}
+
+/* ============================================================
+   AUDIO BELL TOGGLE BUTTON
+   ============================================================ */
+.btn-sound-toggle {
+  transition: background 0.15s;
+}
+.btn-sound-toggle.muted {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  border-color: #b91c1c !important;
+}
+
+/* ============================================================
+   DEFINITIVE MOBILE RESPONSIVE NAVBAR FIX (MAX-WIDTH: 650PX)
+   Must be placed at the END of the CSS file to override desktop
+   ============================================================ */
+@media (max-width: 650px) {
+  .site-header {
+    height: 66px !important;
+    padding-inline: 14px !important;
+    gap: 8px !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
+  }
+  .brand {
+    min-width: 0 !important;
+    gap: 7px !important;
+  }
+  .brand-mark {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 20px !important;
+  }
+  .brand-name {
+    font-size: 20px !important;
+  }
+  .brand-name > span {
+    font-size: 6px !important;
+    letter-spacing: 0.5px !important;
+    margin-top: 3px !important;
+  }
+  
+  /* CRITICAL: Force .main-nav hidden by default on mobile */
+  .main-nav {
+    display: none !important;
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: var(--paper) !important;
+    padding: 16px !important;
+    border-bottom: 3px solid var(--ink) !important;
+    box-shadow: 0 10px 0 rgba(0, 0, 0, 0.25) !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    z-index: 100 !important;
+  }
+  
+  /* Show cleanly stacked when opened via hamburger button */
+  .main-nav.open {
+    display: flex !important;
+    animation: mobileNavOpen 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  
+  @keyframes mobileNavOpen {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .main-nav .nav-item {
+    width: 100% !important;
+    justify-content: flex-start !important;
+    padding: 12px 14px !important;
+    font-size: 13px !important;
+    border: 2px solid var(--ink) !important;
+    background: #fffefa !important;
+    box-shadow: 3px 3px 0 var(--ink) !important;
+  }
+  .main-nav .nav-item:hover, .main-nav .nav-item:active {
+    background: var(--yellow) !important;
+    transform: translate(-1px, -1px) !important;
+  }
+
+  .header-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+  .icon-btn, .cart-trigger {
+    height: 38px !important;
+    padding: 0 9px !important;
+    font-size: 9px !important;
+    gap: 5px !important;
+  }
+  .cart-trigger span {
+    width: 18px !important;
+    height: 18px !important;
+    font-size: 10px !important;
+    margin-left: 2px !important;
+  }
+
+  .menu-toggle {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 38px !important;
+    width: 38px !important;
+    padding: 0 !important;
+    border: 2px solid var(--ink) !important;
+    background: #fffefa !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+  }
+  .menu-toggle.active {
+    background: var(--yellow) !important;
+    box-shadow: 2px 2px 0 var(--ink) !important;
+    transform: translate(-1px, -1px) !important;
+  }
+}
+
