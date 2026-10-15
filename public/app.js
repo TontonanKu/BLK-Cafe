@@ -34,16 +34,410 @@ const imageMap = {
   'Choco Fudge Cake': 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=700&q=80'
 };
 
-async function api(url, options={}) {
-  const res = await fetch(url, {
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options
-  });
-  let data = {};
-  try { data = await res.json(); } catch {}
-  if (!res.ok) throw new Error(data.error || 'Terjadi kesalahan. Coba lagi.');
-  return data;
+// --- CLIENT-SIDE LOCAL STORAGE STORE (Zero-Config / GitHub Pages / Vercel Ready) ---
+const DEFAULT_MENU = [
+  { id: 1, name: 'BLK Smash Burger', description: 'Double beef, cheddar, house sauce, potato bun.', category: 'Makanan', price: 38000, image: '', badge: 'BEST SELLER', available: 1 },
+  { id: 2, name: 'Crispy Chicken Burger', description: 'Ayam crispy, slaw segar, saus mayo pedas.', category: 'Makanan', price: 30000, image: '', badge: 'FAVORIT', available: 1 },
+  { id: 3, name: 'Loaded Fries', description: 'Kentang renyah, cheese sauce, smoked beef.', category: 'Snack', price: 22000, image: '', badge: '', available: 1 },
+  { id: 4, name: 'Chicken Rice Bowl', description: 'Nasi hangat, ayam crispy, sambal matah.', category: 'Makanan', price: 28000, image: '', badge: '', available: 1 },
+  { id: 5, name: 'Iced Americano', description: 'Espresso dengan es dan air mineral.', category: 'Minuman', price: 18000, image: '', badge: '', available: 1 },
+  { id: 6, name: 'Brown Sugar Latte', description: 'Espresso, susu, dan brown sugar.', category: 'Minuman', price: 25000, image: '', badge: 'NEW', available: 1 },
+  { id: 7, name: 'Matcha Cloud', description: 'Matcha creamy dengan foam lembut.', category: 'Minuman', price: 27000, image: '', badge: '', available: 1 },
+  { id: 8, name: 'Choco Fudge Cake', description: 'Cake cokelat pekat, cocok buat sharing.', category: 'Dessert', price: 24000, image: '', badge: '', available: 1 }
+];
+
+const DEFAULT_VOUCHERS = [
+  { id: 1, code: 'KENALAN', description: 'Diskon 20% untuk pelanggan baru', type: 'percent', value: 20, min_order: 50000, max_discount: 15000, usage_limit: 100, used_count: 3, active: 1, expires_at: '2027-12-31' },
+  { id: 2, code: 'HEMAT10', description: 'Potongan Rp10.000 min. belanja Rp75.000', type: 'fixed', value: 10000, min_order: 75000, max_discount: null, usage_limit: 200, used_count: 5, active: 1, expires_at: '2027-12-31' }
+];
+
+const DEFAULT_ORDERS = [
+  {
+    id: 1,
+    code: 'BLK-718293',
+    user_id: 1,
+    customer_name: 'Dimas Aditya',
+    phone: '081234567890',
+    service_type: 'dine_in',
+    fulfillment: 'dine_in',
+    payment_method: 'Kasir',
+    notes: '[MEJA 03] Extra saus mayo',
+    subtotal: 63000,
+    discount: 0,
+    total: 63000,
+    voucher_code: '',
+    status: 'Menunggu Konfirmasi',
+    created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString().replace('T', ' ').substring(0, 19),
+    items: [
+      { item_name: 'BLK Smash Burger', quantity: 1, unit_price: 38000, options: 'Pedas sedang' },
+      { item_name: 'Brown Sugar Latte', quantity: 1, unit_price: 25000, options: 'Less ice' }
+    ]
+  },
+  {
+    id: 2,
+    code: 'BLK-482019',
+    user_id: 1,
+    customer_name: 'Rani Safitri',
+    phone: '087788991122',
+    service_type: 'dine_in',
+    fulfillment: 'dine_in',
+    payment_method: 'Kasir',
+    notes: '[MEJA 05]',
+    subtotal: 70000,
+    discount: 10000,
+    total: 60000,
+    voucher_code: 'HEMAT10',
+    status: 'Diproses',
+    created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString().replace('T', ' ').substring(0, 19),
+    items: [
+      { item_name: 'Crispy Chicken Burger', quantity: 1, unit_price: 30000, options: '' },
+      { item_name: 'Loaded Fries', quantity: 1, unit_price: 22000, options: '' },
+      { item_name: 'Iced Americano', quantity: 1, unit_price: 18000, options: '' }
+    ]
+  }
+];
+
+const DEFAULT_ADMIN = {
+  id: 1,
+  name: 'Admin BLK Cafe',
+  email: 'admin@blokcafe.test',
+  role: 'admin'
+};
+
+function initMockStorage(force = false) {
+  try {
+    if (force || !localStorage.getItem('blk_menu')) {
+      localStorage.setItem('blk_menu', JSON.stringify(DEFAULT_MENU));
+    }
+    if (force || !localStorage.getItem('blk_vouchers')) {
+      localStorage.setItem('blk_vouchers', JSON.stringify(DEFAULT_VOUCHERS));
+    }
+    if (force || !localStorage.getItem('blk_orders')) {
+      localStorage.setItem('blk_orders', JSON.stringify(DEFAULT_ORDERS));
+    }
+  } catch (err) {
+    console.warn('Storage init error:', err);
+  }
+}
+initMockStorage();
+
+function getTableUrl(tableNo) {
+  const origin = window.location.origin;
+  const path = window.location.pathname.replace(/\/index\.html$/i, '/');
+  const base = `${origin}${path}`.endsWith('/') ? `${origin}${path}` : `${origin}${path}/`;
+  return `${base}?table=${encodeURIComponent(tableNo)}`;
+}
+
+function resetDemoData() {
+  if (!confirm('Kembalikan semua data demo (menu, voucher, pesanan) ke data awal?')) return;
+  try {
+    localStorage.removeItem('blk_menu');
+    localStorage.removeItem('blk_vouchers');
+    localStorage.removeItem('blk_orders');
+    localStorage.removeItem('blk_session_user');
+    initMockStorage(true);
+  } catch {}
+  toast('Data demo berhasil direset ke setelan awal!');
+  setTimeout(() => window.location.reload(), 450);
+}
+
+async function api(url, options = {}) {
+  // Add 40ms simulation delay so UI transitions are silky smooth
+  await new Promise(r => setTimeout(r, 40));
+
+  const method = (options.method || 'GET').toUpperCase();
+  let body = {};
+  if (options.body) {
+    try { body = typeof options.body === 'string' ? JSON.parse(options.body) : options.body; } catch {}
+  }
+
+  // Parse path without query params
+  const path = url.split('?')[0];
+
+  initMockStorage();
+
+  const getMenu = () => {
+    try { return JSON.parse(localStorage.getItem('blk_menu') || '[]'); } catch { return [...DEFAULT_MENU]; }
+  };
+  const saveMenu = m => {
+    try { localStorage.setItem('blk_menu', JSON.stringify(m)); } catch {}
+  };
+
+  const getVouchers = () => {
+    try { return JSON.parse(localStorage.getItem('blk_vouchers') || '[]'); } catch { return [...DEFAULT_VOUCHERS]; }
+  };
+  const saveVouchers = v => {
+    try { localStorage.setItem('blk_vouchers', JSON.stringify(v)); } catch {}
+  };
+
+  const getOrders = () => {
+    try { return JSON.parse(localStorage.getItem('blk_orders') || '[]'); } catch { return [...DEFAULT_ORDERS]; }
+  };
+  const saveOrders = o => {
+    try { localStorage.setItem('blk_orders', JSON.stringify(o)); } catch {}
+  };
+
+  const getSessionUser = () => {
+    try {
+      const raw = localStorage.getItem('blk_session_user');
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  };
+  const setSessionUser = u => {
+    try {
+      if (u) localStorage.setItem('blk_session_user', JSON.stringify(u));
+      else localStorage.removeItem('blk_session_user');
+    } catch {}
+  };
+
+  // 1. GET /api/config
+  if (path === '/api/config') {
+    const u = getSessionUser();
+    return { authenticated: Boolean(u), user: u };
+  }
+
+  // 2. POST /api/login
+  if (path === '/api/login' && method === 'POST') {
+    const email = String(body.email || '').trim().toLowerCase();
+    const pass = String(body.password || '').trim();
+
+    if (email === 'admin@blokcafe.test' && (pass === 'CafeAdmin123!' || pass === 'admin' || pass === 'admin123')) {
+      setSessionUser(DEFAULT_ADMIN);
+      return { user: DEFAULT_ADMIN };
+    }
+
+    if (pass.length < 4) throw new Error('Password minimal 4 karakter.');
+    const u = {
+      id: Date.now(),
+      name: email.split('@')[0].toUpperCase(),
+      email: email,
+      role: 'customer'
+    };
+    setSessionUser(u);
+    return { user: u };
+  }
+
+  // 3. POST /api/register
+  if (path === '/api/register' && method === 'POST') {
+    const name = String(body.name || '').trim() || 'Pelanggan';
+    const email = String(body.email || '').trim().toLowerCase();
+    const pass = String(body.password || '').trim();
+    if (!email || pass.length < 6) throw new Error('Email dan password (min 6 karakter) diperlukan.');
+    const u = { id: Date.now(), name, email, role: 'customer' };
+    setSessionUser(u);
+    return { user: u };
+  }
+
+  // 4. POST /api/logout
+  if (path === '/api/logout') {
+    setSessionUser(null);
+    return { ok: true };
+  }
+
+  // 5. GET /api/menu
+  if (path === '/api/menu' && method === 'GET') {
+    return getMenu().filter(m => Number(m.available) !== 0);
+  }
+
+  // 6. GET /api/admin/menu
+  if (path === '/api/admin/menu' && method === 'GET') {
+    return getMenu();
+  }
+
+  // 7. POST /api/admin/menu
+  if (path === '/api/admin/menu' && method === 'POST') {
+    const menu = getMenu();
+    const newItem = {
+      id: Date.now(),
+      name: body.name || 'Menu Baru',
+      description: body.description || '',
+      category: body.category || 'Makanan',
+      price: Number(body.price) || 0,
+      image: body.image || '',
+      badge: body.badge || '',
+      available: body.available !== undefined ? Number(body.available) : 1
+    };
+    menu.push(newItem);
+    saveMenu(menu);
+    return { ok: true, item: newItem };
+  }
+
+  // 8. PATCH /api/admin/menu/:id
+  const matchMenuPatch = path.match(/^\/api\/admin\/menu\/(\d+)$/);
+  if (matchMenuPatch && method === 'PATCH') {
+    const id = Number(matchMenuPatch[1]);
+    const menu = getMenu();
+    const idx = menu.findIndex(m => m.id === id);
+    if (idx !== -1) {
+      menu[idx] = { ...menu[idx], ...body };
+      saveMenu(menu);
+    }
+    return { ok: true };
+  }
+
+  // 9. DELETE /api/admin/menu/:id
+  const matchMenuDelete = path.match(/^\/api\/admin\/menu\/(\d+)$/);
+  if (matchMenuDelete && method === 'DELETE') {
+    const id = Number(matchMenuDelete[1]);
+    const menu = getMenu().filter(m => m.id !== id);
+    saveMenu(menu);
+    return { ok: true };
+  }
+
+  // 10. GET /api/vouchers
+  if (path === '/api/vouchers' && method === 'GET') {
+    return getVouchers().filter(v => Number(v.active) !== 0);
+  }
+
+  // 11. GET /api/admin/vouchers
+  if (path === '/api/admin/vouchers' && method === 'GET') {
+    return getVouchers();
+  }
+
+  // 12. POST /api/admin/vouchers
+  if (path === '/api/admin/vouchers' && method === 'POST') {
+    const vouchers = getVouchers();
+    const newVoucher = {
+      id: Date.now(),
+      code: String(body.code || '').trim().toUpperCase(),
+      description: body.description || '',
+      type: body.type || 'fixed',
+      value: Number(body.value) || 0,
+      min_order: Number(body.min_order) || 0,
+      max_discount: body.max_discount ? Number(body.max_discount) : null,
+      usage_limit: body.usage_limit ? Number(body.usage_limit) : 100,
+      used_count: 0,
+      active: 1,
+      expires_at: body.expires_at || '2027-12-31'
+    };
+    vouchers.push(newVoucher);
+    saveVouchers(vouchers);
+    return { ok: true, voucher: newVoucher };
+  }
+
+  // 13. PATCH /api/admin/vouchers/:id
+  const matchVoucherPatch = path.match(/^\/api\/admin\/vouchers\/(\d+)$/);
+  if (matchVoucherPatch && method === 'PATCH') {
+    const id = Number(matchVoucherPatch[1]);
+    const vouchers = getVouchers();
+    const idx = vouchers.findIndex(v => v.id === id);
+    if (idx !== -1) {
+      vouchers[idx] = { ...vouchers[idx], ...body };
+      saveVouchers(vouchers);
+    }
+    return { ok: true };
+  }
+
+  // 14. POST /api/voucher/check
+  if (path === '/api/voucher/check' && method === 'POST') {
+    const code = String(body.code || '').trim().toUpperCase();
+    const subtotal = Number(body.subtotal) || 0;
+    const vouchers = getVouchers();
+    const v = vouchers.find(x => x.code === code && Number(x.active) !== 0);
+    if (!v) throw new Error('Kode voucher tidak ditemukan atau sudah tidak aktif.');
+    if (subtotal < v.min_order) {
+      throw new Error(`Minimal belanja untuk voucher ini adalah ${money(v.min_order)}.`);
+    }
+    let discount = 0;
+    if (v.type === 'percent') {
+      discount = Math.round((subtotal * v.value) / 100);
+      if (v.max_discount && discount > v.max_discount) {
+        discount = v.max_discount;
+      }
+    } else {
+      discount = v.value;
+    }
+    if (discount > subtotal) discount = subtotal;
+    return { valid: true, discount, voucher: v };
+  }
+
+  // 15. POST /api/orders
+  if (path === '/api/orders' && method === 'POST') {
+    const user = getSessionUser();
+    const orders = getOrders();
+    const tableNo = body.tableNumber || extractTable(body.notes) || '01';
+    const cleanNotes = (body.notes || '').replace(/\[MEJA\s+[^\]]+\]/i, '').trim();
+    const formattedNotes = `[MEJA ${tableNo}] ${cleanNotes}`.trim();
+    const subtotal = (body.items || []).reduce((sum, it) => sum + (Number(it.unit_price) * Number(it.quantity)), 0);
+    const discount = Number(body.discount) || 0;
+    const total = Math.max(0, subtotal - discount);
+    const code = `BLK-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const newOrder = {
+      id: Date.now(),
+      code,
+      user_id: user ? user.id : 1,
+      customer_name: (user && user.name) || `Tamu Meja ${tableNo}`,
+      phone: body.phone || '',
+      service_type: 'dine_in',
+      fulfillment: 'dine_in',
+      payment_method: 'Kasir',
+      notes: formattedNotes,
+      subtotal,
+      discount,
+      total,
+      voucher_code: body.voucherCode || '',
+      status: 'Menunggu Konfirmasi',
+      created_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      items: (body.items || []).map(it => ({
+        id: it.id || 0,
+        item_name: it.item_name || it.name || 'Menu',
+        quantity: Number(it.quantity) || 1,
+        unit_price: Number(it.unit_price) || Number(it.price) || 0,
+        options: it.options || it.notes || ''
+      }))
+    };
+
+    orders.unshift(newOrder);
+    saveOrders(orders);
+    return { ok: true, order: newOrder };
+  }
+
+  // 16. GET /api/orders/mine
+  if (path === '/api/orders/mine' && method === 'GET') {
+    const orders = getOrders();
+    const user = getSessionUser();
+    if (!user) return orders.slice(0, 5);
+    return orders.filter(o => o.user_id === user.id || o.customer_name === user.name);
+  }
+
+  // 17. GET /api/admin/orders
+  if (path === '/api/admin/orders' && method === 'GET') {
+    return getOrders();
+  }
+
+  // 18. PATCH /api/admin/orders/:id
+  const matchOrderPatch = path.match(/^\/api\/admin\/orders\/(\d+)$/);
+  if (matchOrderPatch && method === 'PATCH') {
+    const id = Number(matchOrderPatch[1]);
+    const orders = getOrders();
+    const idx = orders.findIndex(o => o.id === id);
+    if (idx !== -1) {
+      orders[idx] = { ...orders[idx], ...body };
+      saveOrders(orders);
+    }
+    return { ok: true };
+  }
+
+  // 19. GET /api/admin/summary
+  if (path === '/api/admin/summary' && method === 'GET') {
+    const orders = getOrders();
+    const menu = getMenu();
+    const totalOrders = orders.length;
+    const totalSales = orders
+      .filter(o => o.status !== 'Dibatalkan')
+      .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const pending = orders.filter(o => o.status === 'Menunggu Konfirmasi').length;
+    const totalMenuItems = menu.length;
+    return { orders: totalOrders, pending, revenue: totalSales, menu: totalMenuItems };
+  }
+
+  // 20. POST /api/admin/upload
+  if (path === '/api/admin/upload' && method === 'POST') {
+    return { url: body.data || '' };
+  }
+
+  throw new Error(`Endpoint tidak ditemukan: ${path}`);
 }
 
 function toast(message) {
@@ -380,7 +774,7 @@ function printReceipt(orderId) {
 }
 
 function printTableTentCard(tableNo) {
-  const url = `${window.location.origin}/?table=${encodeURIComponent(tableNo)}`;
+  const url = getTableUrl(tableNo);
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(url)}`;
   const tentHtml = `
     <!DOCTYPE html>
@@ -487,7 +881,7 @@ function printTableTentCard(tableNo) {
 function printAllTableStickers() {
   const tables = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
   const cardsHtml = tables.map(t => {
-    const url = `${window.location.origin}/?table=${encodeURIComponent(t)}`;
+    const url = getTableUrl(t);
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}`;
     return `
       <div class="sticker-card">
@@ -873,20 +1267,39 @@ async function uploadImageFile(file) {
     if (!file || !file.type.startsWith('image/')) {
       return reject(new Error('Pilih file gambar valid (JPG, PNG, WEBP).'));
     }
-    if (file.size > 8 * 1024 * 1024) {
-      return reject(new Error('Ukuran foto maksimal 8MB.'));
+    if (file.size > 10 * 1024 * 1024) {
+      return reject(new Error('Ukuran foto maksimal 10MB.'));
     }
     const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const res = await api('/api/admin/upload', {
-          method: 'POST',
-          body: JSON.stringify({ data: reader.result })
-        });
-        resolve(res.url);
-      } catch (err) {
-        reject(err);
-      }
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const maxDim = 600;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const compressedUrl = canvas.toDataURL('image/jpeg', 0.82);
+          resolve(compressedUrl);
+        } catch {
+          resolve(reader.result);
+        }
+      };
+      img.onerror = () => resolve(reader.result);
+      img.src = reader.result;
     };
     reader.onerror = () => reject(new Error('Gagal membaca file gambar.'));
     reader.readAsDataURL(file);
@@ -1263,7 +1676,7 @@ async function renderAdmin() {
 
         <div class="table-qr-grid">
           ${presets.map(t => {
-            const url = `${window.location.origin}/?table=${encodeURIComponent(t)}`;
+            const url = getTableUrl(t);
             const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
             return `
               <div class="table-qr-card">
@@ -1439,7 +1852,7 @@ document.addEventListener('click', async e => {
   const copyTable = e.target.closest('[data-copy-table-link]');
   if (copyTable) {
     const t = copyTable.dataset.copyTableLink;
-    const url = `${window.location.origin}/?table=${encodeURIComponent(t)}`;
+    const url = getTableUrl(t);
     navigator.clipboard.writeText(url)
       .then(() => toast(`Link Meja ${t} disalin ke clipboard!`))
       .catch(() => prompt('Salin link meja ini:', url));
@@ -1508,6 +1921,8 @@ document.addEventListener('submit', async e => {
     try {
       await api('/api/admin/menu', { method: 'POST', body: JSON.stringify(b) });
       toast('Menu baru berhasil ditambahkan.');
+      e.target.reset();
+      $('#adminMenuForm')?.classList.add('hidden');
       await Promise.all([renderAdmin(), loadMenu()]);
     } catch (err) {
       const errEl = $('#adminMenuError');
@@ -1521,6 +1936,8 @@ document.addEventListener('submit', async e => {
     try {
       await api('/api/admin/vouchers', { method: 'POST', body: JSON.stringify(b) });
       toast('Voucher baru berhasil ditambahkan.');
+      e.target.reset();
+      $('#adminVoucherForm')?.classList.add('hidden');
       renderAdmin();
       loadVouchers();
     } catch (err) {
@@ -1561,6 +1978,20 @@ $('#adminLogoutBtn')?.addEventListener('click', async () => {
     toast('Kamu sudah logout.');
   } catch (err) {
     toast(err.message);
+  }
+});
+$('#resetDemoBtn')?.addEventListener('click', resetDemoData);
+
+$('#fillAdminDemo')?.addEventListener('click', e => {
+  e.preventDefault();
+  const form = $('#authForm');
+  if (form) {
+    const emailInput = form.querySelector('[name="email"]');
+    const passInput = form.querySelector('[name="password"]');
+    if (emailInput) emailInput.value = 'admin@blokcafe.test';
+    if (passInput) passInput.value = 'CafeAdmin123!';
+    state.authMode = 'login';
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
   }
 });
 

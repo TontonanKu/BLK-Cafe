@@ -40,6 +40,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 if (isVercel && fs.existsSync(uploadsDir)) {
   app.use('/uploads', express.static(uploadsDir));
 }

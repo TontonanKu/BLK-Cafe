@@ -708,6 +708,51 @@
   border-color: #b91c1c !important;
 }
 
+.btn-reset-demo {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+  border-color: #b45309 !important;
+  font-weight: 800 !important;
+}
+.btn-reset-demo:hover {
+  background: #fde68a !important;
+}
+
+.demo-login-hint {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: #fbf9f4;
+  border: 1.5px dashed var(--ink);
+  font-size: 11px;
+  text-align: center;
+  border-radius: 2px;
+}
+.demo-login-hint code {
+  font-family: monospace;
+  font-size: 10.5px;
+  background: #eee8dc;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+.btn-auto-admin {
+  margin-top: 6px;
+  background: var(--ink);
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  display: inline-block;
+  transition: transform 0.1s, background 0.15s;
+}
+.btn-auto-admin:hover {
+  background: var(--orange);
+  color: #fff;
+}
+
 /* ============================================================
    DEFINITIVE MOBILE RESPONSIVE NAVBAR FIX (MAX-WIDTH: 650PX)
    Must be placed at the END of the CSS file to override desktop
