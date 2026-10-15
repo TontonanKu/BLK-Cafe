@@ -754,6 +754,108 @@
 }
 
 /* ============================================================
+   BRAND MARK LOGO FIX ("B" + "LK" in single line, perfectly centered)
+   ============================================================ */
+.brand-mark {
+  width: 44px !important;
+  height: 44px !important;
+  background: var(--orange) !important;
+  border: 2px solid var(--ink) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: 'Barlow Condensed', sans-serif !important;
+  font-size: 23px !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.5px !important;
+  line-height: 1 !important;
+  transform: rotate(-3deg) !important;
+  box-shadow: 3px 3px 0 var(--ink) !important;
+  color: var(--ink) !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+  text-decoration: none !important;
+  vertical-align: middle !important;
+}
+.brand-mark span {
+  color: #fff !important;
+  display: inline !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  letter-spacing: inherit !important;
+  line-height: inherit !important;
+  background: transparent !important;
+  width: auto !important;
+  height: auto !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.brand-mark-sm {
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 19px !important;
+  box-shadow: 2px 2px 0 var(--ink) !important;
+}
+
+/* ============================================================
+   CART TRIGGER BUTTON & BAG BADGE FIX
+   ============================================================ */
+.cart-trigger {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  background: var(--ink) !important;
+  color: #fff !important;
+  height: 42px !important;
+  padding: 0 13px !important;
+  border: 2px solid var(--ink) !important;
+  font-family: inherit !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.5px !important;
+  cursor: pointer !important;
+  transition: transform 0.15s, box-shadow 0.15s !important;
+}
+.cart-trigger:hover {
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 3px 3px 0 var(--orange) !important;
+}
+.cart-trigger .cart-label,
+.cart-trigger > span:not(#cartCount):not(.cart-badge) {
+  color: #fff !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.8px !important;
+  background: transparent !important;
+  border: none !important;
+  width: auto !important;
+  height: auto !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: inline !important;
+  line-height: 1 !important;
+}
+.cart-trigger .cart-badge,
+.cart-trigger #cartCount {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 20px !important;
+  height: 20px !important;
+  padding: 0 5px !important;
+  border-radius: 10px !important;
+  background: var(--yellow) !important;
+  color: var(--ink) !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  margin-left: 2px !important;
+}
+
+/* ============================================================
    DEFINITIVE MOBILE RESPONSIVE NAVBAR FIX (MAX-WIDTH: 650PX)
    Must be placed at the END of the CSS file to override desktop
    ============================================================ */
@@ -771,9 +873,20 @@
     gap: 7px !important;
   }
   .brand-mark {
-    width: 36px !important;
-    height: 36px !important;
-    font-size: 20px !important;
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 19px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .brand-mark span {
+    color: #fff !important;
+    display: inline !important;
+    font: inherit !important;
+    background: transparent !important;
+    width: auto !important;
+    height: auto !important;
   }
   .brand-name {
     font-size: 20px !important;
@@ -838,14 +951,40 @@
   }
   .icon-btn, .cart-trigger {
     height: 38px !important;
-    padding: 0 9px !important;
+    padding: 0 10px !important;
     font-size: 9px !important;
-    gap: 5px !important;
+    gap: 6px !important;
   }
-  .cart-trigger span {
-    width: 18px !important;
+  .cart-trigger {
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+  .cart-trigger .cart-label,
+  .cart-trigger > span:not(#cartCount):not(.cart-badge) {
+    display: inline !important;
+    font-size: 9px !important;
+    font-weight: 900 !important;
+    color: #fff !important;
+    background: transparent !important;
+    width: auto !important;
+    height: auto !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    letter-spacing: 0.8px !important;
+  }
+  .cart-trigger .cart-badge,
+  .cart-trigger #cartCount {
+    min-width: 18px !important;
     height: 18px !important;
-    font-size: 10px !important;
+    padding: 0 4px !important;
+    font-size: 9.5px !important;
+    border-radius: 9px !important;
+    background: var(--yellow) !important;
+    color: var(--ink) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     margin-left: 2px !important;
   }
 
